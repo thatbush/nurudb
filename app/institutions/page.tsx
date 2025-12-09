@@ -375,7 +375,7 @@ export default function InstitutionsPage() {
                 <div className="max-w-7xl mx-auto space-y-6">
                     <SplitText
                         text="Here's what we know"
-                        className="text-5xl lg:text-7xl font-bold text-primary"
+                        className="text-5xl lg:text-7xl font-bold text-white"
                         delay={60}
                         duration={0.5}
                         ease="power3.out"
@@ -387,7 +387,7 @@ export default function InstitutionsPage() {
                         textAlign="center"
                         onLetterAnimationComplete={handleAnimationComplete}
                     />
-                    <p className="text-lg text-muted-foreground max-w-2xl">
+                    <p className="text-lg text-white/70 max-w-2xl">
                         We try as much as possible to keep this updated with the latest data. Help us by reporting any errors or missing information. <br /> <br />
                     </p>
                     <div className="mt-6 flex flex-col lg:flex-row gap-4">
@@ -411,20 +411,20 @@ export default function InstitutionsPage() {
 
                     {!loading && (
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4">
-                            <div className="border border-primary/20 p-4 rounded-lg">
-                                <div className="text-3xl font-bold text-primary">{universities.length}</div>
+                            <div className="border border-white/20 p-4 rounded-lg">
+                                <div className="text-3xl font-bold text-white">{universities.length}</div>
                                 <div className="text-sm text-muted-foreground">Universities</div>
                             </div>
-                            <div className="border border-primary/20 p-4 rounded-lg">
-                                <div className="text-3xl font-bold text-primary">{colleges.length}</div>
+                            <div className="border border-white/20 p-4 rounded-lg">
+                                <div className="text-3xl font-bold text-white">{colleges.length}</div>
                                 <div className="text-sm text-muted-foreground">Colleges</div>
                             </div>
-                            <div className="border border-primary/20 p-4 rounded-lg">
-                                <div className="text-3xl font-bold text-primary">{universities.length + colleges.length}</div>
+                            <div className="border border-white/20 p-4 rounded-lg">
+                                <div className="text-3xl font-bold text-white">{universities.length + colleges.length}</div>
                                 <div className="text-sm text-muted-foreground">Total Institutions</div>
                             </div>
-                            <div className="border border-primary/20 p-4 rounded-lg">
-                                <div className="text-3xl font-bold text-primary">{programmes.length}</div>
+                            <div className="border border-white/20 p-4 rounded-lg">
+                                <div className="text-3xl font-bold text-white">{programmes.length}</div>
                                 <div className="text-sm text-muted-foreground">Total Programmes</div>
                             </div>
                         </div>

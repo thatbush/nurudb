@@ -240,16 +240,39 @@ function MeLayoutInner({ children }: { children: React.ReactNode }) {
             <SidebarInset>
                 <div className="flex flex-col">
                     <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between px-4 md:px-8 py-5.5 w-full border-b border-border sticky top-0 z-50 bg-background">
-                        <SidebarTrigger className="hover:bg-secondary transition-colors cursor-pointer" />
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={toggleDarkMode}
-                            aria-label="Toggle theme"
-                            className="hidden lg:flex cursor-pointer"
-                        >
-                            {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-                        </Button>
+                        {/* Left side - visible on all screens */}
+                        <div className="flex items-center gap-4 w-full lg:w-auto justify-between lg:justify-start">
+                            <SidebarTrigger className="hover:bg-secondary transition-colors cursor-pointer" />
+                            <img
+                                src='/merry_icon.webp'
+                                alt='Merry Christmas'
+                                className="w-28 h-auto lg:absolute lg:left-1/2 lg:transform lg:-translate-x-1/2"
+                            />
+
+                            {/* Theme toggle - mobile version */}
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={toggleDarkMode}
+                                aria-label="Toggle theme"
+                                className="lg:hidden cursor-pointer flex-shrink-0"
+                            >
+                                {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+                            </Button>
+                        </div>
+
+                        {/* Right side - desktop only */}
+                        <div className="hidden lg:flex items-center gap-4 flex-shrink-0">
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={toggleDarkMode}
+                                aria-label="Toggle theme"
+                                className="cursor-pointer"
+                            >
+                                {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+                            </Button>
+                        </div>
                     </div>
                     <main className="flex-1 overflow-auto">
                         <DashboardAnalytics />

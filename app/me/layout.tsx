@@ -1,18 +1,14 @@
 'use client';
 
 import { Suspense, useEffect, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { createBrowserClient } from '@supabase/ssr';
-import { db } from '@/lib/supabaseProxy';
+import { useRouter } from 'next/navigation';
 import {
     LayoutDashboard,
     User,
     Settings,
     LogOut,
     ChevronDown,
-    BookOpen,
-    FileText,
-    Zap,
+    Sparkles,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -42,16 +38,10 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import SplashCursor from '@/components/SplashCursor';
-import FuzzyText from '@/components/FuzzyText';
 import { Spinner } from '@/components/ui/spinner';
 import DashboardAnalytics from '@/components/DashboardAnalytics';
 import { Moon, Sun } from 'lucide-react';
-
-const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_OR_ANON_KEY!
-);
+import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 
 interface LayoutUser {
     id: string;
@@ -67,12 +57,12 @@ const navigationItems = [
         icon: LayoutDashboard,
     },
     {
-        title: 'Discovery',
-        icon: BookOpen,
+        title: 'Reverb',
+        href: '/me/reverb',
+        icon: Sparkles,
         items: [
-            { title: 'Degrees', href: '/me/degree' },
-            { title: 'Diplomas', href: '/me/diploma' },
-            { title: 'Certificates', href: '/me/certificate' },
+            { title: 'My Chats', href: '/me/reverb/chats' },
+            { title: 'Settings', href: '/me/reverb/settings' },
         ],
     },
     {
@@ -85,7 +75,7 @@ const navigationItems = [
     },
 ];
 
-function AppSidebar({ user, onLogout }: { user: LayoutUser; onLogout: () => void }) {
+function AppSidebar({ user, onLogout, isLoading }: { user: LayoutUser | null; onLogout: () => void; isLoading: boolean }) {
     const router = useRouter();
 
     const initials = user?.full_name
@@ -100,20 +90,41 @@ function AppSidebar({ user, onLogout }: { user: LayoutUser; onLogout: () => void
                 <SidebarMenu>
                     <SidebarMenuItem>
                         <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <SidebarMenuButton className="transition-colors h-16 cursor-pointer">
+                            <DropdownMenuTrigger asChild disabled={isLoading}>
+                                <SidebarMenuButton className="transition-colors h-16 cursor-pointer disabled:opacity-50">
                                     <div className="relative">
-                                        <img src="/nuru-l-tp.png" alt="Nuru" className="absolute top-0 left-0 w-14 h-14 object-cover animate-spin [animation-duration:20s]" />
+                                        <img
+                                            src="/nuru-l-tp.png"
+                                            alt="Nuru"
+                                            className="absolute top-0 left-0 w-14 h-14 object-cover animate-spin [animation-duration:20s]"
+                                        />
                                         <Avatar className="h-14 w-14 p-3">
-                                            <AvatarImage src={user.avatar_url || undefined} />
-                                            <AvatarFallback className="bg-gradient-to-br from-[#e29d1cff] to-[#d4891a] text-white text-xs font-bold">
-                                                {initials}
-                                            </AvatarFallback>
+                                            {isLoading ? (
+                                                <AvatarFallback className="bg-gradient-to-br from-[#e29d1cff] to-[#d4891a]">
+                                                    <Spinner className="w-5 h-5 text-white" />
+                                                </AvatarFallback>
+                                            ) : (
+                                                <>
+                                                    <AvatarImage src={user?.avatar_url || undefined} />
+                                                    <AvatarFallback className="bg-gradient-to-br from-[#e29d1cff] to-[#d4891a] text-white text-xs font-bold">
+                                                        {initials}
+                                                    </AvatarFallback>
+                                                </>
+                                            )}
                                         </Avatar>
                                     </div>
                                     <div className="flex flex-col gap-0.5 leading-none">
-                                        <span className="font-semibold text-sm">{user.full_name}</span>
-                                        <span className="text-xs text-gray-500">@{user.username}</span>
+                                        {isLoading ? (
+                                            <>
+                                                <div className="h-4 w-24 bg-muted animate-pulse rounded" />
+                                                <div className="h-3 w-16 bg-muted animate-pulse rounded mt-1" />
+                                            </>
+                                        ) : (
+                                            <>
+                                                <span className="font-semibold text-sm">{user?.full_name}</span>
+                                                <span className="text-xs text-gray-500">@{user?.username}</span>
+                                            </>
+                                        )}
                                     </div>
                                     <ChevronDown className="ml-auto h-4 w-4" />
                                 </SidebarMenuButton>
@@ -139,7 +150,6 @@ function AppSidebar({ user, onLogout }: { user: LayoutUser; onLogout: () => void
                         </DropdownMenu>
                     </SidebarMenuItem>
                 </SidebarMenu>
-
             </SidebarHeader>
 
             <SidebarContent className="space-y-2 p-4">
@@ -191,23 +201,17 @@ function AppSidebar({ user, onLogout }: { user: LayoutUser; onLogout: () => void
             </SidebarContent>
 
             <SidebarFooter className="border-t border-gray-800">
-
             </SidebarFooter>
         </Sidebar>
     );
 }
 
 function MeLayoutInner({ children }: { children: React.ReactNode }) {
-    const router = useRouter();
-    const searchParams = useSearchParams();
-    const [user, setUser] = useState<LayoutUser | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [authLoading, setAuthLoading] = useState(true);
+    const { user, isLoading, logout } = useAuth();
     const [darkMode, setDarkMode] = useState(false);
-    const [mounted, setMounted] = useState(false);
 
+    // Initialize theme immediately
     useEffect(() => {
-        setMounted(true);
         const isDark = localStorage.getItem('theme') === 'dark' ||
             (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches);
         setDarkMode(isDark);
@@ -230,94 +234,9 @@ function MeLayoutInner({ children }: { children: React.ReactNode }) {
         applyTheme(newDarkMode);
     };
 
-
-    const intent = searchParams.get('intent') || null;
-
-    useEffect(() => {
-        const fetchUser = async () => {
-            try {
-                const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
-
-                if (authError) {
-                    console.error('Auth error:', authError);
-                    if (intent) {
-                        sessionStorage.setItem('postAuthIntent', intent);
-                    }
-                    router.push('/auth/login');
-                    return;
-                }
-
-                if (!authUser?.id) {
-                    if (intent) {
-                        sessionStorage.setItem('postAuthIntent', intent);
-                    }
-                    router.push('/auth/login');
-                    return;
-                }
-
-                setAuthLoading(false);
-
-                const userData = await db.users.select({
-                    filter: { auth_id: authUser.id },
-                });
-
-                if (userData.error) {
-                    console.error('Fetch error:', userData.error);
-                    if (intent) {
-                        sessionStorage.setItem('postAuthIntent', intent);
-                    }
-                    router.push('/me/set-up');
-                    return;
-                }
-
-                if (userData) {
-                    const userProfile = (userData as any)?.data?.[0] || null;
-
-                    setUser(userProfile);
-                } else {
-                    if (intent) {
-                        sessionStorage.setItem('postAuthIntent', intent);
-                    }
-                    router.push('/me/set-up');
-                }
-            } catch (error) {
-                console.error('Error fetching user:', error);
-                if (intent) {
-                    sessionStorage.setItem('postAuthIntent', intent);
-                }
-                router.push('/auth/login');
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchUser();
-    }, [router, intent]);
-
-    const handleLogout = async () => {
-        await supabase.auth.signOut();
-        router.push('/auth/login');
-    };
-
-    if (loading || authLoading) {
-        return (
-            <div className="min-h-screen flex items-center justify-center">
-                <Spinner
-                    className="text-chart-3"
-                />
-            </div>
-        );
-    }
-
-    if (!user) {
-        return null;
-    }
-
-
-
     return (
         <SidebarProvider>
-            <AppSidebar user={user} onLogout={handleLogout} />
+            <AppSidebar user={user} onLogout={logout} isLoading={isLoading} />
             <SidebarInset>
                 <div className="flex flex-col">
                     <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between px-4 md:px-8 py-5.5 w-full border-b border-border sticky top-0 z-50 bg-background">
@@ -334,7 +253,13 @@ function MeLayoutInner({ children }: { children: React.ReactNode }) {
                     </div>
                     <main className="flex-1 overflow-auto">
                         <DashboardAnalytics />
-                        {children}
+                        {isLoading ? (
+                            <div className="flex items-center justify-center min-h-[400px]">
+                                <Spinner className="text-chart-3" />
+                            </div>
+                        ) : (
+                            children
+                        )}
                     </main>
                 </div>
             </SidebarInset>
@@ -342,11 +267,23 @@ function MeLayoutInner({ children }: { children: React.ReactNode }) {
     );
 }
 
-// Suspense boundary
-export default function MeLayout({ children }: { children: React.ReactNode }) {
+// Main layout component wrapped with AuthProvider
+function MeLayoutContent({ children }: { children: React.ReactNode }) {
     return (
-        <Suspense fallback={<Spinner className="text-chart-3" />}>
+        <Suspense fallback={
+            <div className="min-h-screen flex items-center justify-center">
+                <Spinner className="text-chart-3" />
+            </div>
+        }>
             <MeLayoutInner children={children} />
         </Suspense>
+    );
+}
+
+export default function MeLayout({ children }: { children: React.ReactNode }) {
+    return (
+        <AuthProvider>
+            <MeLayoutContent children={children} />
+        </AuthProvider>
     );
 }

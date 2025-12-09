@@ -7,6 +7,7 @@ import LayoutWrapper from "@/components/LayoutWrapper";
 import GoogleAnalytics from "@/components/GoogleAnalytics";
 import Script from "next/script";
 
+
 const josefinSans = Josefin_Sans({
 	variable: "--font-josefin-sans",
 	subsets: ["latin"],
@@ -45,6 +46,7 @@ export default function RootLayout({
 			<body className={`${josefinSans.variable} ${geistMono.variable} antialiased`}>
 				<ThemeProvider attribute="class">
 					<LayoutWrapper>
+
 						{children}
 						<GoogleAnalytics />
 					</LayoutWrapper>

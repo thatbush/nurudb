@@ -22,6 +22,7 @@
     "@reui": "https://reui.io/r/{name}.json",
     "@react-bits": "https://reactbits.dev/r/{name}.json",
     "@supabase": "https://supabase.com/ui/r/{name}.json",
-    "@better-upload": "https://better-upload.com/r/{name}.json"
+    "@better-upload": "https://better-upload.com/r/{name}.json",
+    "@ai-elements": "https://registry.ai-sdk.dev/{name}.json"
   }
 }

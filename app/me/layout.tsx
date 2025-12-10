@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import {
     LayoutDashboard,
     User,
@@ -9,6 +10,7 @@ import {
     LogOut,
     ChevronDown,
     Sparkles,
+    TrendingUp,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -52,8 +54,13 @@ interface LayoutUser {
 
 const navigationItems = [
     {
-        title: 'Overview',
+        title: 'Discover',
         href: '/me',
+        icon: TrendingUp,
+    },
+    {
+        title: 'Timetables',
+        href: '/me/timetables',
         icon: LayoutDashboard,
     },
     {
@@ -76,7 +83,9 @@ const navigationItems = [
 ];
 
 function AppSidebar({ user, onLogout, isLoading }: { user: LayoutUser | null; onLogout: () => void; isLoading: boolean }) {
+
     const router = useRouter();
+    const pathname = usePathname();
 
     const initials = user?.full_name
         ?.split(' ')
@@ -159,9 +168,9 @@ function AppSidebar({ user, onLogout, isLoading }: { user: LayoutUser | null; on
                             <Collapsible key={item.title} defaultOpen className="group/collapsible">
                                 <SidebarMenuItem>
                                     <CollapsibleTrigger asChild>
-                                        <SidebarMenuButton className="hover:bg-gray-800 hover:text-[#e29d1cff] transition-colors">
-                                            <item.icon className="w-5 h-5" />
-                                            <span>{item.title}</span>
+                                        <SidebarMenuButton className="hover:text-[#e29d1cff] transition-colors">
+                                            <item.icon className={pathname === item.href ? 'text-[#e29d1cff] w-5 h-5' : 'w-5 h-5'} />
+                                            <span className={`text-sm ${pathname === item.href ? 'text-[#e29d1cff]' : ''}`}>{item.title}</span>
                                             <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-180" />
                                         </SidebarMenuButton>
                                     </CollapsibleTrigger>
@@ -171,10 +180,10 @@ function AppSidebar({ user, onLogout, isLoading }: { user: LayoutUser | null; on
                                                 <SidebarMenuSubItem key={subItem.href}>
                                                     <SidebarMenuSubButton
                                                         asChild
-                                                        className="hover:bg-gray-800 hover:text-[#e29d1cff] transition-colors"
+                                                        className="hover:text-[#e29d1cff] transition-colors"
                                                     >
                                                         <a href={subItem.href}>
-                                                            <span>{subItem.title}</span>
+                                                            <span className={`text-sm ${pathname === subItem.href ? 'text-[#e29d1cff]' : ''}`}>{subItem.title}</span>
                                                         </a>
                                                     </SidebarMenuSubButton>
                                                 </SidebarMenuSubItem>
@@ -187,11 +196,11 @@ function AppSidebar({ user, onLogout, isLoading }: { user: LayoutUser | null; on
                             <SidebarMenuItem key={item.href}>
                                 <SidebarMenuButton
                                     asChild
-                                    className="hover:bg-gray-800 hover:text-[#e29d1cff] transition-colors"
+                                    className="hover:text-[#e29d1cff] transition-colors"
                                 >
                                     <a href={item.href}>
-                                        <item.icon className="w-5 h-5" />
-                                        <span>{item.title}</span>
+                                        <item.icon className={pathname === item.href ? 'text-[#e29d1cff] w-5 h-5' : 'w-5 h-5'} />
+                                        <span className={`text-sm ${pathname === item.href ? 'text-[#e29d1cff]' : ''}`}>{item.title}</span>
                                     </a>
                                 </SidebarMenuButton>
                             </SidebarMenuItem>
@@ -200,7 +209,15 @@ function AppSidebar({ user, onLogout, isLoading }: { user: LayoutUser | null; on
                 </SidebarMenu>
             </SidebarContent>
 
-            <SidebarFooter className="border-t border-gray-800">
+            <SidebarFooter className="py-8 px-4">
+                <SidebarMenu>
+                    <SidebarMenuItem>
+                        <SidebarMenuButton onClick={onLogout} className="hover:text-destructive transition-colors cursor-pointer">
+                            <LogOut className="w-5 h-5" />
+                            <span className="text-sm">Logout</span>
+                        </SidebarMenuButton>
+                    </SidebarMenuItem>
+                </SidebarMenu>
             </SidebarFooter>
         </Sidebar>
     );

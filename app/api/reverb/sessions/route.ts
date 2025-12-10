@@ -7,17 +7,16 @@ export async function GET(request: NextRequest) {
         // Get all sessions with their message counts and latest messages
         const result = await sql`
             SELECT 
-                cm.session_id as id,
-                COALESCE(
-                    SUBSTRING(MIN(CASE WHEN cm.role = 'user' THEN cm.content END), 1, 100),
-                    'New Chat'
-                ) as title,
-                MAX(cm.content) FILTER (WHERE cm.role = 'assistant') as last_message,
-                MAX(cm.timestamp) as timestamp,
-                COUNT(*) as message_count
-            FROM conversation_messages cm
-            GROUP BY cm.session_id
-            ORDER BY MAX(cm.timestamp) DESC
+                s.id,
+                s.title,
+                s.created_at,
+                s.updated_at as timestamp,
+                COUNT(cm.id) as message_count,
+                MAX(cm.content) FILTER (WHERE cm.role = 'assistant') as last_message
+            FROM sessions s
+            LEFT JOIN conversation_messages cm ON s.id = cm.session_id
+            GROUP BY s.id, s.title, s.created_at, s.updated_at
+            ORDER BY s.updated_at DESC
             LIMIT 50
         `;
 

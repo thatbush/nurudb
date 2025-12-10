@@ -9,25 +9,33 @@ export async function GET(
     try {
         const { id } = await params;
 
+        // Ensure session exists first
+        await ensureSessionExists(id);
+
+        // Get session info
+        const sessionResult = await sql`
+            SELECT id, title, created_at, updated_at
+            FROM sessions
+            WHERE id = ${id}
+        `;
+
         // Get session messages
-        const result = await sql`
+        const messagesResult = await sql`
             SELECT role, content, timestamp
             FROM conversation_messages
             WHERE session_id = ${id}
             ORDER BY timestamp ASC
         `;
 
-        const messages = result.rows.map(row => ({
-            id: Date.now() + Math.random(), // Generate unique ID for frontend
+        const messages = messagesResult.rows.map((row, index) => ({
+            id: Date.now() + index, // Generate unique ID for frontend
             role: row.role,
             content: row.content,
             timestamp: row.timestamp
         }));
 
-        // Get title from first user message
-        const title = messages.length > 0 && messages[0].role === 'user'
-            ? messages[0].content.substring(0, 50) + (messages[0].content.length > 50 ? '...' : '')
-            : 'New Chat';
+        const session = sessionResult.rows[0];
+        const title = session?.title || 'New Chat';
 
         return NextResponse.json({
             id,
@@ -52,8 +60,12 @@ export async function PATCH(
         const { id } = await params;
         const { title } = await request.json();
 
-        // Update session title (stored in first message)
-        // This is a simplified approach - you might want a separate sessions table
+        // Update session title in sessions table
+        await sql`
+            UPDATE sessions
+            SET title = ${title}, updated_at = NOW()
+            WHERE id = ${id}
+        `;
 
         return NextResponse.json({ success: true });
 
@@ -73,13 +85,13 @@ export async function DELETE(
     try {
         const { id } = await params;
 
-        // Delete all messages in session
+        // Delete session (CASCADE will delete messages automatically)
         await sql`
-            DELETE FROM conversation_messages
-            WHERE session_id = ${id}
+            DELETE FROM sessions
+            WHERE id = ${id}
         `;
 
-        // Delete from AI data collection log
+        // Also clean up AI data collection log
         await sql`
             DELETE FROM ai_data_collection_log
             WHERE session_id = ${id}
@@ -93,5 +105,31 @@ export async function DELETE(
             { error: 'Failed to delete session' },
             { status: 500 }
         );
+    }
+}
+
+/**
+ * Helper to ensure session exists
+ */
+async function ensureSessionExists(sessionId: string) {
+    try {
+        const existing = await sql`
+            SELECT id FROM sessions WHERE id = ${sessionId}
+        `;
+
+        if (existing.rows.length === 0) {
+            await sql`
+                INSERT INTO sessions (id, title, created_at, updated_at)
+                VALUES (
+                    ${sessionId}, 
+                    'New Chat', 
+                    NOW(), 
+                    NOW()
+                )
+                ON CONFLICT (id) DO NOTHING
+            `;
+        }
+    } catch (error) {
+        console.error('Error ensuring session exists:', error);
     }
 }

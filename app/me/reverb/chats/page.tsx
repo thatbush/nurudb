@@ -2,9 +2,10 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Plus, MessageSquare, Settings, Clock, Trash2 } from 'lucide-react';
+import { Plus, MessageSquare, Clock, Trash2, Search } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { Card } from '@/components/ui/card';
 
 interface ChatSession {
     id: string;
@@ -18,6 +19,7 @@ export default function ChatsListPage() {
     const router = useRouter();
     const [sessions, setSessions] = useState<ChatSession[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [searchQuery, setSearchQuery] = useState('');
 
     useEffect(() => {
         loadSessions();
@@ -65,86 +67,119 @@ export default function ChatsListPage() {
     const formatTimestamp = (date: Date) => {
         const now = new Date();
         const diff = now.getTime() - new Date(date).getTime();
+        const minutes = Math.floor(diff / (1000 * 60));
+        const hours = Math.floor(diff / (1000 * 60 * 60));
         const days = Math.floor(diff / (1000 * 60 * 60 * 24));
 
+        if (minutes < 60) return `${minutes} minutes ago`;
+        if (hours < 24) return `${hours} hours ago`;
         if (days === 0) return 'Today';
-        if (days === 1) return 'Yesterday';
+        if (days === 1) return `${days} day ago`;
         if (days < 7) return `${days} days ago`;
         if (days < 30) return `${Math.floor(days / 7)} weeks ago`;
         return `${Math.floor(days / 30)} months ago`;
     };
 
-    return (
-        <div className="min-h-screen bg-background">
+    const filteredSessions = sessions.filter(session =>
+        session.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        session.lastMessage.toLowerCase().includes(searchQuery.toLowerCase())
+    );
 
-            {/* Content */}
-            <div className="max-w-4xl mx-auto px-4 py-8">
-                {/* New Chat Button */}
-                <button
-                    onClick={createNewChat}
-                    className="w-full mb-6 p-6 rounded-2xl border-2 border-dashed border-border hover:border-primary hover:bg-accent/50 transition-all group"
-                >
-                    <div className="flex items-center justify-center gap-3">
-                        <div className="w-12 h-12 rounded-full bg-primary/10 group-hover:bg-primary/20 flex items-center justify-center transition-colors">
-                            <Plus className="w-6 h-6 text-primary" />
-                        </div>
-                        <div className="text-left">
-                            <p className="font-semibold text-foreground">Start New Chat</p>
-                            <p className="text-sm text-muted-foreground">Ask Reverb anything about Kenyan education</p>
-                        </div>
+    return (
+        <div className="min-h-screen bg-background text-foreground">
+            <div className="max-w-5xl mx-auto px-6 py-8">
+                {/* Header */}
+                <div className="flex items-center justify-between mb-8">
+                    <h1 className="text-4xl font-semibold">Chats</h1>
+                    <button
+                        onClick={createNewChat}
+                        className="px-6 py-2.5 bg-white text-gray-900 rounded-lg font-medium hover:bg-gray-100 transition-colors flex items-center gap-2 cursor-pointer"
+                    >
+                        <Plus className="w-5 h-5" />
+                        New chat
+                    </button>
+                </div>
+
+                {/* Search Bar */}
+                <div className="mb-6">
+                    <div className="relative">
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-primary cursor-pointer" />
+                        <input
+                            type="text"
+                            placeholder="Search your chats..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="w-full bg-secondary border border-gray-700 rounded-xl py-3.5 pl-12 pr-4 text-primary placeholder-gray-500 focus:outline-none focus:border-primary focus:bg-secondary transition-colors"
+                        />
                     </div>
-                </button>
+                </div>
+
+                {/* Sessions Count */}
+                {!isLoading && (
+                    <div className="mb-6 flex items-center gap-3">
+                        <p className="text-primary">
+                            {filteredSessions.length} {filteredSessions.length === 1 ? 'chat' : 'chats'} with Reverb
+                        </p>
+                        {filteredSessions.length > 0 && (
+                            <button className="text-primary hover:text-primary/80 font-medium text-sm transition-colors">
+                                Select
+                            </button>
+                        )}
+                    </div>
+                )}
 
                 {/* Sessions List */}
                 {isLoading ? (
-                    <div className="space-y-4">
-                        {[1, 2, 3].map(i => (
-                            <div key={i} className="animate-pulse">
-                                <div className="h-24 bg-muted rounded-2xl" />
-                            </div>
+                    <div className="space-y-3">
+                        {[1, 2, 3, 4, 5].map(i => (
+                            <div
+                                key={i}
+                                className="h-24 bg-secondary rounded-xl animate-pulse"
+                            />
                         ))}
                     </div>
-                ) : sessions.length === 0 ? (
-                    <div className="text-center py-12">
-                        <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
-                            <MessageSquare className="w-8 h-8 text-muted-foreground" />
+                ) : filteredSessions.length === 0 ? (
+                    <div className="text-center py-16">
+                        <div className="w-16 h-16 rounded-full bg-secondary flex items-center justify-center mx-auto mb-4">
+                            <MessageSquare className="w-8 h-8 text-gray-600" />
                         </div>
-                        <h3 className="text-lg font-semibold text-foreground mb-2">No conversations yet</h3>
-                        <p className="text-muted-foreground mb-6">
-                            Start your first chat with Reverb to get help with education info
+                        <h3 className="text-lg font-semibold text-gray-200 mb-2">
+                            {searchQuery ? 'No chats found' : 'No conversations yet'}
+                        </h3>
+                        <p className="text-gray-500 mb-6">
+                            {searchQuery
+                                ? 'Try a different search term'
+                                : 'Start your first chat with Reverb to get help with education info'}
                         </p>
+                        {!searchQuery && (
+                            <button
+                                onClick={createNewChat}
+                                className="px-6 py-2.5 bg-white text-gray-900 rounded-lg font-medium hover:bg-gray-100 transition-colors inline-flex items-center gap-2 cursor-pointer"
+                            >
+                                <Plus className="w-5 h-5" />
+                                Start New Chat
+                            </button>
+                        )}
                     </div>
                 ) : (
-                    <div className="space-y-3">
-                        {sessions.map(session => (
+                    <div className="space-y-0 border-t border-gray-800">
+                        {filteredSessions.map((session, index) => (
                             <Link key={session.id} href={`/me/reverb/${session.id}`}>
-                                <div className="group p-4 rounded-2xl border border-border hover:border-primary hover:bg-accent/30 transition-all cursor-pointer">
+                                <div className={`group px-4 py-5 hover:bg-secondary transition-colors cursor-pointer border-b border-gray-800 ${index === 0 ? 'rounded-t-xl' : ''
+                                    } ${index === filteredSessions.length - 1 ? 'rounded-b-xl border-b-0' : ''
+                                    }`}>
                                     <div className="flex items-start justify-between gap-4">
-                                        <div className="flex items-start gap-3 flex-1 min-w-0">
-                                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-500 to-pink-600 flex items-center justify-center flex-shrink-0 mt-1">
-                                                <img src="/nuru-d-tp.png" alt="R" className="w-7 h-7" />
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <h3 className="font-semibold text-foreground truncate mb-1">
-                                                    {session.title}
-                                                </h3>
-                                                <p className="text-sm text-muted-foreground truncate">
-                                                    {session.lastMessage}
-                                                </p>
-                                                <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-                                                    <span className="flex items-center gap-1">
-                                                        <Clock className="w-3 h-3" />
-                                                        {formatTimestamp(session.timestamp)}
-                                                    </span>
-                                                    <span>
-                                                        {session.messageCount} messages
-                                                    </span>
-                                                </div>
-                                            </div>
+                                        <div className="flex-1 min-w-0">
+                                            <h3 className="font-medium text-gray-100 mb-1 line-clamp-1">
+                                                {session.title}
+                                            </h3>
+                                            <p className="text-sm text-gray-500 mb-2 line-clamp-1">
+                                                Last message {formatTimestamp(session.timestamp)}
+                                            </p>
                                         </div>
                                         <button
                                             onClick={(e) => deleteSession(session.id, e)}
-                                            className="opacity-0 group-hover:opacity-100 w-8 h-8 rounded-lg hover:bg-destructive/10 flex items-center justify-center text-muted-foreground hover:text-destructive transition-all"
+                                            className="opacity-0 group-hover:opacity-100 w-8 h-8 rounded-lg hover:bg-red-500/10 flex items-center justify-center text-gray-500 hover:text-red-500 transition-all flex-shrink-0"
                                         >
                                             <Trash2 className="w-4 h-4" />
                                         </button>
@@ -154,17 +189,6 @@ export default function ChatsListPage() {
                         ))}
                     </div>
                 )}
-
-                {/* Quick Actions */}
-                <div className="mt-8 p-6 rounded-2xl bg-muted/50">
-                    <h3 className="font-semibold text-foreground mb-3">Quick Tips</h3>
-                    <ul className="space-y-2 text-sm text-muted-foreground">
-                        <li>• Ask about universities: "Tell me about Strathmore"</li>
-                        <li>• Compare programmes: "Engineering at UoN vs JKUAT"</li>
-                        <li>• Check requirements: "Can I join KMTC with C-?"</li>
-                        <li>• Get fee estimates: "How much is Bachelor of Commerce?"</li>
-                    </ul>
-                </div>
             </div>
         </div>
     );

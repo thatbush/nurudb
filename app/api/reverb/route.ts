@@ -13,7 +13,7 @@ const dataCollector = new AdaptiveDataCollector();
 interface ReverbRequest {
     message: string;
     sessionId: string;
-    userId: string;
+    userId?: string;
 }
 
 export async function POST(request: NextRequest) {
@@ -27,6 +27,14 @@ export async function POST(request: NextRequest) {
                 { status: 400 }
             );
         }
+
+        // CRITICAL FIX: Ensure session exists in sessions table first
+        console.log('=== REVERB API START ===');
+        console.log('Session ID:', sessionId);
+        console.log('Message:', message.substring(0, 50));
+
+        await ensureSessionExists(sessionId);
+        console.log('Session ensured, proceeding with message processing');
 
         // 1. GET CONVERSATION HISTORY
         const history = await getConversationHistory(sessionId, 10);
@@ -44,7 +52,7 @@ export async function POST(request: NextRequest) {
         const systemPrompt = buildReverbSystemPrompt({
             referenceData: structuredContext,
             bufferStatus,
-            userProfile: { id: userId },
+            userProfile: { id: userId || 'anonymous' },
             conversationHistory: history
         });
 
@@ -90,16 +98,25 @@ export async function POST(request: NextRequest) {
         }
 
         // 10. FLUSH READY BATCHES
-        const stored = await dataCollector.flushReadyBatches(sessionId, userId);
+        const stored = await dataCollector.flushReadyBatches(sessionId, userId || 'anonymous');
 
-        // 11. STORE MESSAGES
+        // 11. STORE MESSAGES (Now safe because session exists)
+        console.log('Storing user message...');
         await storeMessage(sessionId, 'user', message);
-        await storeMessage(sessionId, 'assistant', aiResponse);
+        console.log('User message stored');
 
-        // 12. LOG DATA COLLECTION
+        console.log('Storing assistant message...');
+        await storeMessage(sessionId, 'assistant', aiResponse);
+        console.log('Assistant message stored');
+
+        // 12. UPDATE SESSION timestamp
+        await updateSessionTimestamp(sessionId);
+        console.log('Session timestamp updated');
+
+        // 13. LOG DATA COLLECTION
         await logDataCollection({
             sessionId,
-            userId,
+            userId: userId || 'anonymous',
             userQuery: message,
             extractedPoints: extractedData.length,
             storedBatches: stored.length,
@@ -136,6 +153,69 @@ export async function POST(request: NextRequest) {
             { error: 'Failed to process', details: error instanceof Error ? error.message : 'Unknown' },
             { status: 500 }
         );
+    }
+}
+
+/**
+ * CRITICAL FIX: Ensure session exists before inserting messages
+ * This prevents foreign key constraint violations
+ */
+async function ensureSessionExists(sessionId: string) {
+    try {
+        console.log('Checking if session exists:', sessionId);
+
+        const existing = await sql`
+            SELECT id FROM sessions WHERE id = ${sessionId}
+        `;
+
+        console.log('Session check result:', existing.rows.length > 0 ? 'exists' : 'not found');
+
+        if (existing.rows.length === 0) {
+            console.log('Creating new session:', sessionId);
+
+            const result = await sql`
+                INSERT INTO sessions (id, title, created_at, updated_at)
+                VALUES (
+                    ${sessionId}, 
+                    'New Chat', 
+                    NOW(), 
+                    NOW()
+                )
+                RETURNING id
+            `;
+
+            console.log('Session created:', result.rows[0]);
+        }
+
+        // Double-check it exists
+        const verify = await sql`
+            SELECT id FROM sessions WHERE id = ${sessionId}
+        `;
+
+        if (verify.rows.length === 0) {
+            throw new Error(`Failed to create session: ${sessionId}`);
+        }
+
+        console.log('Session verified to exist');
+
+    } catch (error) {
+        console.error('Error ensuring session exists:', error);
+        throw error;
+    }
+}
+
+/**
+ * Update session's last updated timestamp
+ */
+async function updateSessionTimestamp(sessionId: string) {
+    try {
+        await sql`
+            UPDATE sessions 
+            SET updated_at = NOW()
+            WHERE id = ${sessionId}
+        `;
+    } catch (error) {
+        console.error('Error updating session timestamp:', error);
     }
 }
 
@@ -368,6 +448,7 @@ async function storeMessage(sessionId: string, role: 'user' | 'assistant', conte
         `;
     } catch (error) {
         console.error('Message storage error:', error);
+        throw error; // Re-throw to catch issues
     }
 }
 

@@ -34,6 +34,7 @@ export default function ChatSessionPage({ params }: { params: Promise<{ id: stri
     const [isLoading, setIsLoading] = useState(false);
     const [sessionId, setSessionId] = useState('');
     const [sessionTitle, setSessionTitle] = useState('New Chat');
+    const [isLoadingSession, setIsLoadingSession] = useState(true);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -85,39 +86,43 @@ export default function ChatSessionPage({ params }: { params: Promise<{ id: stri
         ),
     };
 
-    const getSessionId = async () => {
-        const session = (await params).id;
-        setSessionId(session);
-    }
-
+    // Load session on mount
     useEffect(() => {
-        getSessionId();
-        loadSession();
-    }, []);
+        const initSession = async () => {
+            const resolvedParams = await params;
+            const id = resolvedParams.id;
+            console.log('Loading session:', id);
+            setSessionId(id);
+
+            // Load previous messages
+            try {
+                const response = await fetch(`/api/reverb/sessions/${id}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('Loaded messages:', data.messages?.length || 0);
+                    setMessages(data.messages || []);
+                    setSessionTitle(data.title || 'New Chat');
+                }
+            } catch (error) {
+                console.error('Failed to load session:', error);
+            } finally {
+                setIsLoadingSession(false);
+            }
+        };
+
+        initSession();
+    }, [params]);
 
     useEffect(() => {
         scrollToBottom();
     }, [messages]);
-
-    const loadSession = async () => {
-        try {
-            const response = await fetch(`/api/reverb/sessions/${sessionId}`);
-            if (response.ok) {
-                const data = await response.json();
-                setMessages(data.messages || []);
-                setSessionTitle(data.title || 'New Chat');
-            }
-        } catch (error) {
-            console.error('Failed to load session:', error);
-        }
-    };
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     };
 
     const handleSubmit = async () => {
-        if (!input.trim() || isLoading) return;
+        if (!input.trim() || isLoading || !sessionId) return;
 
         const userMessage: MessageType = {
             id: Date.now(),
@@ -211,6 +216,16 @@ export default function ChatSessionPage({ params }: { params: Promise<{ id: stri
         adjustTextareaHeight();
     }, [input]);
 
+    if (isLoadingSession) {
+        return (
+            <div className="flex flex-col h-screen bg-background">
+                <div className="flex-1 flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="flex flex-col h-screen bg-background">
             {/* Messages Area */}
@@ -221,6 +236,7 @@ export default function ChatSessionPage({ params }: { params: Promise<{ id: stri
                             <div className="mb-8">
                                 <img src="/nuru-d-tp.png" alt="Reverb" className="w-16 h-16 mx-auto" />
                             </div>
+                            <p className="text-muted-foreground">Start a conversation with Reverb</p>
                         </div>
                     ) : (
                         <div className="py-8 space-y-8">
@@ -231,7 +247,7 @@ export default function ChatSessionPage({ params }: { params: Promise<{ id: stri
                                             <img
                                                 src="/nuru-d-tp.png"
                                                 alt="AI"
-                                                className={`w-8 h-8 ${isLoading && message.id === messages[messages.length - 1]?.id ? 'animate-spin [animation-duration:20s]' : ''}`}
+                                                className="w-8 h-8"
                                             />
                                         </div>
                                     )}
@@ -268,6 +284,13 @@ export default function ChatSessionPage({ params }: { params: Promise<{ id: stri
                                             alt="AI"
                                             className="w-8 h-8 animate-spin [animation-duration:20s]"
                                         />
+                                    </div>
+                                    <div className="flex-1">
+                                        <div className="flex gap-1">
+                                            <span className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce [animation-delay:0ms]"></span>
+                                            <span className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce [animation-delay:150ms]"></span>
+                                            <span className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce [animation-delay:300ms]"></span>
+                                        </div>
                                     </div>
                                 </div>
                             )}

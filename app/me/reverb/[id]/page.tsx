@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { ArrowLeft, Send, Paperclip, Globe, BookOpen, ImageIcon, Mic } from 'lucide-react';
+import { ArrowLeft, Send, Paperclip, Globe, BookOpen, ImageIcon, Mic, ArrowUp } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import ReactMarkdown from 'react-markdown';
@@ -227,7 +227,7 @@ export default function ChatSessionPage({ params }: { params: Promise<{ id: stri
     }
 
     return (
-        <div className="flex flex-col h-screen bg-background">
+        <div className="flex flex-col h-[85vh] bg-background">
             {/* Messages Area */}
             <div className="flex-1 overflow-y-auto">
                 <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -285,13 +285,7 @@ export default function ChatSessionPage({ params }: { params: Promise<{ id: stri
                                             className="w-8 h-8 animate-spin [animation-duration:20s]"
                                         />
                                     </div>
-                                    <div className="flex-1">
-                                        <div className="flex gap-1">
-                                            <span className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce [animation-delay:0ms]"></span>
-                                            <span className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce [animation-delay:150ms]"></span>
-                                            <span className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce [animation-delay:300ms]"></span>
-                                        </div>
-                                    </div>
+
                                 </div>
                             )}
                             <div ref={messagesEndRef} />
@@ -301,8 +295,8 @@ export default function ChatSessionPage({ params }: { params: Promise<{ id: stri
             </div>
 
             {/* Input Area */}
-            <div className="flex-none border-t border-border bg-background">
-                <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+            <div className="flex-none">
+                <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="relative bg-muted rounded-3xl">
                         <textarea
                             ref={textareaRef}
@@ -320,7 +314,7 @@ export default function ChatSessionPage({ params }: { params: Promise<{ id: stri
                             disabled={!input.trim() || isLoading}
                             className="absolute right-3 bottom-3 w-10 h-10 rounded-xl bg-foreground hover:bg-foreground/90 disabled:bg-muted-foreground/20 disabled:cursor-not-allowed flex items-center justify-center text-background transition-colors"
                         >
-                            <Send className="w-5 h-5" />
+                            <ArrowUp className="w-5 h-5 text-secondary" />
                         </button>
                     </div>
                     <div className="flex items-center justify-center gap-3 mt-4 flex-wrap">

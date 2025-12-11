@@ -1,13 +1,13 @@
-// app/api/reverb/route.ts
-
 import { NextRequest, NextResponse } from 'next/server';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { Perplexity } from '@perplexity-ai/perplexity_ai';
 import { sql } from '@vercel/postgres';
 import { createClient } from '@/utils/supabase/server';
 import { AdaptiveDataCollector } from '@/lib/reverb/dataCollector';
 import { buildReverbSystemPrompt } from '@/lib/reverb/systemPrompt';
 
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GEMINI_API_KEY!);
+const client = new Perplexity({
+    apiKey: process.env.PERPLEXITY_API_KEY!
+});
 const dataCollector = new AdaptiveDataCollector();
 
 interface ReverbRequest {
@@ -15,6 +15,61 @@ interface ReverbRequest {
     sessionId: string;
     userId?: string;
 }
+
+// Rate limiting helper with exponential backoff
+class RateLimiter {
+    private maxRetries = 5;
+
+    private calculateDelay(attempt: number): number {
+        const baseDelay = Math.pow(2, attempt) * 1000; // exponential: 1s, 2s, 4s, 8s, 16s
+        const jitter = Math.random() * 500; // 0-500ms random jitter
+        return Math.min(baseDelay + jitter, 60000); // cap at 60 seconds
+    }
+
+    async executeWithRetry<T>(
+        operation: () => Promise<T>,
+        operationName: string = 'operation'
+    ): Promise<T> {
+        let lastError: Error | null = null;
+
+        for (let attempt = 0; attempt < this.maxRetries; attempt++) {
+            try {
+                return await operation();
+            } catch (error: any) {
+                lastError = error;
+
+                // Check if it's a rate limit error (429)
+                const isRateLimit =
+                    error?.status === 429 ||
+                    error?.message?.toLowerCase().includes('rate limit');
+
+                // Check if it's a connection error
+                const isConnectionError =
+                    error?.message?.toLowerCase().includes('connection') ||
+                    error?.message?.toLowerCase().includes('network');
+
+                if (isRateLimit || isConnectionError) {
+                    if (attempt < this.maxRetries - 1) {
+                        const delay = this.calculateDelay(attempt);
+                        console.warn(
+                            `${operationName} failed (attempt ${attempt + 1}/${this.maxRetries}). ` +
+                            `Retrying in ${(delay / 1000).toFixed(2)}s...`
+                        );
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                        continue;
+                    }
+                }
+
+                // If it's not a retryable error, throw immediately
+                throw error;
+            }
+        }
+
+        throw lastError || new Error(`${operationName} failed after ${this.maxRetries} attempts`);
+    }
+}
+
+const rateLimiter = new RateLimiter();
 
 export async function POST(request: NextRequest) {
     try {
@@ -28,7 +83,6 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // CRITICAL FIX: Ensure session exists in sessions table first
         console.log('=== REVERB API START ===');
         console.log('Session ID:', sessionId);
         console.log('Message:', message.substring(0, 50));
@@ -48,7 +102,7 @@ export async function POST(request: NextRequest) {
         // 4. BUILD STRUCTURED DATA CONTEXT for the model
         const structuredContext = prepareStructuredContext(referenceData);
 
-        // 5. BUILD SYSTEM PROMPT with markdown formatting instructions
+        // 5. BUILD SYSTEM PROMPT
         const systemPrompt = buildReverbSystemPrompt({
             referenceData: structuredContext,
             bufferStatus,
@@ -56,20 +110,45 @@ export async function POST(request: NextRequest) {
             conversationHistory: history
         });
 
-        // 6. BUILD CONVERSATION
-        const conversationMessages = history.map(msg => ({
-            role: msg.role === 'assistant' ? 'model' : 'user',
-            parts: [{ text: msg.content }]
+        // 6. BUILD CONVERSATION WITH STRICT TYPING
+        const conversationMessages: Array<{
+            role: 'user' | 'assistant';
+            content: string;
+        }> = history.map(msg => ({
+            role: msg.role === 'assistant' ? ('assistant' as const) : ('user' as const),
+            content: String(msg.content || '')
         }));
-        conversationMessages.push({ role: 'user', parts: [{ text: message }] });
-
-        // 7. GENERATE AI RESPONSE
-        const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
-        const response = await model.generateContent({
-            systemInstruction: systemPrompt,
-            contents: conversationMessages
+        conversationMessages.push({
+            role: 'user' as const,
+            content: message
         });
-        const aiResponse = response.response.text();
+
+        // 7. GENERATE AI RESPONSE USING PERPLEXITY SONAR WITH RATE LIMITING
+        // Note: Tier 0 accounts have 50 RPM limit for 'sonar' model
+        const response = await rateLimiter.executeWithRetry(
+            async () => {
+                return await client.chat.completions.create({
+                    model: 'sonar', // Updated to latest model (50 RPM at Tier 0)
+                    messages: [
+                        { role: 'system' as const, content: systemPrompt },
+                        ...conversationMessages
+                    ],
+                    max_tokens: 512,
+                    temperature: 0.7, // Optional: control randomness
+                    // Optional: Enable web search if needed
+                    // search_domain_filter: ['edu'], // Filter to educational domains
+                    // search_recency_filter: 'month', // Recent results only
+                });
+            },
+            'Perplexity API call'
+        );
+
+        // Safely extract response content
+        const aiResponse = response.choices[0]?.message?.content || 'I apologize, but I could not generate a response.';
+
+        if (!aiResponse || typeof aiResponse !== 'string') {
+            throw new Error('Invalid response format from Perplexity API');
+        }
 
         // 8. EXTRACT DATA POINTS
         const extractedData = await extractDataFromConversation(
@@ -100,7 +179,7 @@ export async function POST(request: NextRequest) {
         // 10. FLUSH READY BATCHES
         const stored = await dataCollector.flushReadyBatches(sessionId, userId || 'anonymous');
 
-        // 11. STORE MESSAGES (Now safe because session exists)
+        // 11. STORE MESSAGES
         console.log('Storing user message...');
         await storeMessage(sessionId, 'user', message);
         console.log('User message stored');
@@ -125,7 +204,7 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json({
             success: true,
-            message: aiResponse, // Model formats this with markdown
+            message: aiResponse,
             sessionId,
             dataPoints: {
                 extracted: extractedData.length,
@@ -144,14 +223,27 @@ export async function POST(request: NextRequest) {
                     extracted: extractedData.length,
                     stored: stored.length
                 }
-            }
+            },
+            model: 'sonar' // Include model info in response
         });
-
-    } catch (error) {
+    } catch (error: any) {
         console.error('Reverb error:', error);
+
+        // Enhanced error response with rate limit info
+        const errorResponse: any = {
+            error: 'Failed to process',
+            details: error instanceof Error ? error.message : 'Unknown error'
+        };
+
+        // Add specific guidance for rate limit errors
+        if (error?.status === 429 || error?.message?.toLowerCase().includes('rate limit')) {
+            errorResponse.rateLimitExceeded = true;
+            errorResponse.suggestion = 'Rate limit exceeded. The request will be retried automatically.';
+        }
+
         return NextResponse.json(
-            { error: 'Failed to process', details: error instanceof Error ? error.message : 'Unknown' },
-            { status: 500 }
+            errorResponse,
+            { status: error?.status || 500 }
         );
     }
 }
@@ -448,7 +540,7 @@ async function storeMessage(sessionId: string, role: 'user' | 'assistant', conte
         `;
     } catch (error) {
         console.error('Message storage error:', error);
-        throw error; // Re-throw to catch issues
+        throw error;
     }
 }
 

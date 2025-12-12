@@ -166,9 +166,9 @@ function AppSidebar({ user, onLogout, isLoading }: { user: LayoutUser | null; on
                             <Collapsible key={item.title} defaultOpen className="group/collapsible">
                                 <SidebarMenuItem>
                                     <CollapsibleTrigger asChild>
-                                        <SidebarMenuButton className="hover:text-[#e29d1cff] transition-colors">
-                                            <item.icon className={pathname === item.href ? 'text-[#e29d1cff] w-5 h-5' : 'w-5 h-5'} />
-                                            <span className={`text-sm ${pathname === item.href ? 'text-[#e29d1cff]' : ''}`}>{item.title}</span>
+                                        <SidebarMenuButton className="hover:text-[#104e64] transition-colors">
+                                            <item.icon className={pathname === item.href ? 'text-[#104e64] w-5 h-5' : 'w-5 h-5'} />
+                                            <span className={`text-sm ${pathname === item.href ? 'text-[#104e64]' : ''}`}>{item.title}</span>
                                             <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-180" />
                                         </SidebarMenuButton>
                                     </CollapsibleTrigger>
@@ -178,10 +178,10 @@ function AppSidebar({ user, onLogout, isLoading }: { user: LayoutUser | null; on
                                                 <SidebarMenuSubItem key={subItem.href}>
                                                     <SidebarMenuSubButton
                                                         asChild
-                                                        className="hover:text-[#e29d1cff] transition-colors"
+                                                        className="transition-colors"
                                                     >
-                                                        <a href={subItem.href}>
-                                                            <span className={`text-sm ${pathname === subItem.href ? 'text-[#e29d1cff]' : ''}`}>{subItem.title}</span>
+                                                        <a href={subItem.href} className={`text-sm ${pathname === subItem.href ? 'bg-[#104e50]/80 p-2 rounded-lg' : ''}`}>
+                                                            <span>{subItem.title}</span>
                                                         </a>
                                                     </SidebarMenuSubButton>
                                                 </SidebarMenuSubItem>
@@ -194,11 +194,11 @@ function AppSidebar({ user, onLogout, isLoading }: { user: LayoutUser | null; on
                             <SidebarMenuItem key={item.href}>
                                 <SidebarMenuButton
                                     asChild
-                                    className="hover:text-[#e29d1cff] transition-colors"
+                                    className="transition-colors"
                                 >
-                                    <a href={item.href}>
-                                        <item.icon className={pathname === item.href ? 'text-[#e29d1cff] w-5 h-5' : 'w-5 h-5'} />
-                                        <span className={`text-sm ${pathname === item.href ? 'text-[#e29d1cff]' : ''}`}>{item.title}</span>
+                                    <a href={item.href} className={`text-sm ${pathname === item.href ? 'bg-[#104e50]/80 p-4 rounded-lg' : ''}`}>
+                                        <item.icon className={pathname === item.href ? 'w-5 h-5' : 'w-5 h-5'} />
+                                        <span>{item.title}</span>
                                     </a>
                                 </SidebarMenuButton>
                             </SidebarMenuItem>

@@ -99,7 +99,7 @@ export function ChatList() {
     return (
         <div className="h-screen flex flex-col bg-background">
             {/* Header */}
-            <div className="p-4 border-b">
+            <div className="p-4">
                 <h1 className="text-2xl font-bold mb-4">Chats</h1>
                 <div className="relative">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
@@ -127,7 +127,7 @@ export function ChatList() {
                         <div
                             key={chat.id}
                             onClick={() => handleChatClick(chat)}
-                            className="flex items-center gap-3 p-4 hover:bg-muted cursor-pointer border-b transition-colors"
+                            className="flex items-center gap-3 p-4 hover:bg-muted cursor-pointer transition-colors"
                         >
                             <div className="relative">
                                 <Avatar className="w-12 h-12">
@@ -152,11 +152,11 @@ export function ChatList() {
                                     </span>
                                 </div>
                                 <div className="flex items-center justify-between">
-                                    <p className="text-sm text-muted-foreground truncate flex-1">
+                                    <p className="text-sm truncate flex-1">
                                         {chat.lastMessage || 'No messages yet'}
                                     </p>
                                     {chat.unreadCount > 0 && (
-                                        <Badge className="ml-2 bg-primary text-white">
+                                        <Badge className="ml-2 bg-background text-primary">
                                             {chat.unreadCount}
                                         </Badge>
                                     )}

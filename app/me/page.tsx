@@ -431,7 +431,7 @@ export default function DashboardPage() {
                                         )}
                                     </div>
                                 ) : (
-                                    <div className="grid grid-cols-1 gap-4 max-h-[calc(100vh-380px)] overflow-y-auto">
+                                    <div className="grid grid-cols-1 gap-4 h-full overflow-y-auto">
                                         {filteredSpaces.map((space) => {
                                             const isJoining = joiningSpaces.has(space.id);
 
@@ -441,7 +441,7 @@ export default function DashboardPage() {
                                                     className="hover:border-primary transition-colors cursor-pointer"
                                                     onClick={() => !isJoining && handleSpaceClick(space)}
                                                 >
-                                                    <CardContent className="p-4">
+                                                    <CardContent className="">
                                                         <div className="flex items-start gap-3">
                                                             <Avatar className="w-12 h-12">
                                                                 {space.logo_url ? (

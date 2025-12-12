@@ -1,4 +1,4 @@
-// app/me/reverb/[id]/page.tsx
+// app/me/reverb/[id]/page.tsx - Update the session loading and title update parts
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { createClient } from '@/lib/client';
 
 interface MessageType {
     id: number;
@@ -29,10 +30,12 @@ interface MessageType {
 
 export default function ChatSessionPage({ params }: { params: Promise<{ id: string }> }) {
     const router = useRouter();
+    const supabase = createClient();
     const [messages, setMessages] = useState<MessageType[]>([]);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [sessionId, setSessionId] = useState('');
+    const [userId, setUserId] = useState<string | null>(null);
     const [sessionTitle, setSessionTitle] = useState('New Chat');
     const [isLoadingSession, setIsLoadingSession] = useState(true);
     const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -89,6 +92,14 @@ export default function ChatSessionPage({ params }: { params: Promise<{ id: stri
     // Load session on mount
     useEffect(() => {
         const initSession = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) {
+                router.push('/login');
+                return;
+            }
+
+            setUserId(user.id);
+
             const resolvedParams = await params;
             const id = resolvedParams.id;
             console.log('Loading session:', id);
@@ -96,12 +107,15 @@ export default function ChatSessionPage({ params }: { params: Promise<{ id: stri
 
             // Load previous messages
             try {
-                const response = await fetch(`/api/reverb/sessions/${id}`);
+                const response = await fetch(`/api/reverb/sessions/${id}?userId=${user.id}`);
                 if (response.ok) {
                     const data = await response.json();
                     console.log('Loaded messages:', data.messages?.length || 0);
                     setMessages(data.messages || []);
                     setSessionTitle(data.title || 'New Chat');
+                } else if (response.status === 403) {
+                    // Session doesn't belong to user
+                    router.push('/me/reverb/chats');
                 }
             } catch (error) {
                 console.error('Failed to load session:', error);
@@ -122,7 +136,7 @@ export default function ChatSessionPage({ params }: { params: Promise<{ id: stri
     };
 
     const handleSubmit = async () => {
-        if (!input.trim() || isLoading || !sessionId) return;
+        if (!input.trim() || isLoading || !sessionId || !userId) return;
 
         const userMessage: MessageType = {
             id: Date.now(),
@@ -145,6 +159,7 @@ export default function ChatSessionPage({ params }: { params: Promise<{ id: stri
                 body: JSON.stringify({
                     message: currentInput,
                     sessionId: sessionId,
+                    userId: userId,
                     model: 'gemini-2.5-flash'
                 })
             });
@@ -186,11 +201,12 @@ export default function ChatSessionPage({ params }: { params: Promise<{ id: stri
     };
 
     const updateSessionTitle = async (title: string) => {
+        if (!userId) return;
         try {
             await fetch(`/api/reverb/sessions/${sessionId}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ title })
+                body: JSON.stringify({ title, userId })
             });
         } catch (error) {
             console.error('Failed to update title:', error);

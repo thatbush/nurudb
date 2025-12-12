@@ -3,8 +3,13 @@
 import React, { createContext, useContext, useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { createBrowserClient } from '@supabase/ssr';
-import { db } from '@/lib/supabaseProxy';
-import type { User as SupabaseUser } from '@supabase/supabase-js';
+
+interface SupabaseUser {
+    id: string;
+    full_name: string;
+    username: string;
+    avatar_url: string | null;
+}
 
 const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -16,6 +21,8 @@ interface LayoutUser {
     full_name: string;
     username: string;
     avatar_url: string | null;
+    credits: number;
+    auth_id: string;
 }
 
 interface AuthContextType {
@@ -36,17 +43,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const fetchUserProfile = async (authUserId: string) => {
         try {
-            const userData = await db.users.select({
-                filter: { auth_id: authUserId },
-            });
+            // Fetch from Neon via API
+            const response = await fetch(`/api/users/profile/${authUserId}`);
+            const result = await response.json();
 
-            if (userData.error || !userData) {
-                console.error('Fetch error:', userData.error);
+            if (!result.success || !result.data) {
+                console.error('Fetch error:', result.error);
                 return null;
             }
 
-            const userProfile = (userData as any)?.data?.[0] || null;
-            return userProfile;
+            return result.data;
         } catch (error) {
             console.error('Error fetching user profile:', error);
             return null;
@@ -69,32 +75,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         router.push('/auth/login');
     };
 
-    const userCache = useMemo(() => {
-        return {
-            user,
-            authUser,
-            isLoading,
-            logout,
-            refreshUser,
-        };
-    }, [user, authUser, isLoading, logout, refreshUser]);
-
     useEffect(() => {
         // Get initial session
         const initAuth = async () => {
-            // Check cache first
-            if (userCache.user && userCache.authUser) {
-                setAuthUser(userCache.authUser);
-
-                const profile = await fetchUserProfile(userCache.authUser.id);
-                if (profile) {
-                    setUser(profile);
-                }
-
-                setIsLoading(false);
-                return;
-            }
-
             try {
                 const { data: { session } } = await supabase.auth.getSession();
 
@@ -106,7 +89,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
                 setAuthUser(session.user);
 
-                // Fetch user profile
+                // Fetch user profile from Neon
                 const profile = await fetchUserProfile(session.user.id);
 
                 if (profile) {
@@ -126,7 +109,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         // Listen for auth changes
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
-            async (event, session) => {
+            async ({ event, session }: { event: string, session: any }) => {
                 console.log('Auth state change:', event);
 
                 if (event === 'SIGNED_OUT') {
@@ -150,8 +133,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         };
     }, [router]);
 
+    const value = useMemo(() => ({
+        user,
+        authUser,
+        isLoading,
+        logout,
+        refreshUser,
+    }), [user, authUser, isLoading]);
+
     return (
-        <AuthContext.Provider value={{ user, authUser, isLoading, logout, refreshUser }}>
+        <AuthContext.Provider value={value}>
             {children}
         </AuthContext.Provider>
     );

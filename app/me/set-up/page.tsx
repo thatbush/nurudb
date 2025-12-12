@@ -68,31 +68,10 @@ export default function SetupPage() {
     const [completed, setCompleted] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [usernameError, setUsernameError] = useState<string | null>(null);
-    const [universities, setUniversities] = useState<University[]>([]);
-    const [loadingUniversities, setLoadingUniversities] = useState(false);
 
     useEffect(() => {
         fetchUserProfile();
-        fetchUniversities();
     }, []);
-
-    const fetchUniversities = async () => {
-        try {
-            setLoadingUniversities(true);
-            const { data, error } = await supabase
-                .from('universities')
-                .select('id, name, type')
-                .eq('is_active', true)
-                .order('name', { ascending: true });
-
-            if (error) throw error;
-            setUniversities(data || []);
-        } catch (error) {
-            console.error('Error fetching universities:', error);
-        } finally {
-            setLoadingUniversities(false);
-        }
-    };
 
     const fetchUserProfile = async () => {
         try {
@@ -107,24 +86,36 @@ export default function SetupPage() {
                 return;
             }
 
+            console.log('Auth user:', { id: authUser.id, email: authUser.email });
             setAuthUser(authUser);
 
-            const { data: userData, error: userError } = await supabase
-                .from('users')
-                .select('*')
-                .eq('auth_id', authUser.id)
-                .single();
+            // Ensure email is available
+            if (!authUser.email) {
+                setError('Email not found. Please log in again.');
+                setLoading(false);
+                return;
+            }
 
-            if (userError || !userData) {
-                console.error('User profile not found:', userError);
-                setError(`No user profile found for auth_id: ${authUser.id}`);
+            // Pass email as query parameter for user creation if needed
+            const url = `/api/users/profile/${authUser.id}?email=${encodeURIComponent(authUser.email)}`;
+            console.log('Fetching profile from:', url);
+
+            const response = await fetch(url);
+            const result = await response.json();
+
+            console.log('Profile fetch result:', result);
+
+            if (!result.success || !result.data) {
+                console.error('User profile error:', result.error);
+                setError(result.error || 'Failed to load profile');
                 setLoading(false);
                 setUser(null);
                 return;
             }
 
-            setUser(userData as UserProfile);
-            setFormData(userData as UserProfile);
+            console.log('User profile loaded:', result.data);
+            setUser(result.data as UserProfile);
+            setFormData(result.data as UserProfile);
             setLoading(false);
         } catch (error) {
             console.error('Error fetching user:', error);
@@ -145,18 +136,23 @@ export default function SetupPage() {
             return true;
         }
 
-        const { data, error } = await supabase
-            .from('users')
-            .select('username')
-            .eq('username', username)
-            .single();
+        // Check username in database
+        const response = await fetch(`/api/users/check-username`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ username }),
+        });
 
-        if (error && error.code !== 'PGRST116') {
+        const data = await response.json();
+
+        if (data.error) {
             setUsernameError('Error checking username availability');
             return false;
         }
 
-        if (data) {
+        if (!data.available) {
             setUsernameError('Username is already taken');
             return false;
         }
@@ -220,8 +216,8 @@ export default function SetupPage() {
     };
 
     const handleSave = async () => {
-        if (!user?.id) {
-            setError('User not found. Please refresh the page.');
+        if (!authUser?.id) {
+            setError('Authentication required. Please refresh the page.');
             return;
         }
 
@@ -234,39 +230,61 @@ export default function SetupPage() {
 
             if (formData.full_name?.trim()) updateData.full_name = formData.full_name.trim();
             if (formData.username?.trim()) updateData.username = formData.username.trim();
-            if (formData.bio?.trim()) updateData.bio = formData.bio.trim();
-            if (formData.school_name) updateData.school_name = formData.school_name;
-            if (formData.year_of_study) updateData.year_of_study = formData.year_of_study;
-            if (formData.major?.trim()) updateData.major = formData.major.trim();
+            updateData.credits = 50;
 
-            // Update user profile
-            const { error: updateError } = await supabase
-                .from('users')
-                .update(updateData)
-                .eq('id', user.id);
+            console.log('Saving profile with authId:', authUser.id);
+            console.log('Update data:', updateData);
 
-            if (updateError) throw updateError;
+            // Update user profile using auth_id
+            const url = `/api/users/profile/${authUser.id}`;
+            console.log('PUT request to:', url);
 
-            // Award 50 credits for completing profile setup
-            const { error: creditsError } = await supabase
-                .from('users')
-                .update({ credits: (user.credits || 0) + 50 })
-                .eq('id', user.id);
+            const response = await fetch(url, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(updateData),
+            });
 
-            if (creditsError) throw creditsError;
+            const result = await response.json();
+            console.log('Update result:', result);
 
-            // Create credit transaction
-            const { error: transactionError } = await supabase
-                .from('credit_transactions')
-                .insert({
-                    user_id: user.id,
+            if (!result.success) {
+                console.error('Failed to update user profile:', result.error);
+                setError(result.error);
+                setSaving(false);
+                return;
+            }
+
+            console.log('Profile updated successfully:', result.data);
+
+            // Create credit transaction using the returned user data
+            const userId = result.data.id;
+            console.log('Creating credit transaction for user:', userId);
+
+            const transactionResponse = await fetch(`/api/users/credits`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    user_id: userId,
                     amount: 50,
-                    transaction_type: 'bonus',
-                    description: 'Profile setup completion bonus',
-                    category: 'earned',
-                });
+                    transaction_type: 'credit',
+                    description: 'Initial credit',
+                    category: 'Initial credit'
+                }),
+            });
 
-            if (transactionError) throw transactionError;
+            const transactionResult = await transactionResponse.json();
+            console.log('Transaction result:', transactionResult);
+
+            if (!transactionResult.success) {
+                console.error('Failed to create credit transaction:', transactionResult.error);
+                // Don't fail the whole process if just the transaction fails
+                console.warn('Continuing despite transaction error');
+            }
 
             setCompleted(true);
             setTimeout(() => {
@@ -324,93 +342,6 @@ export default function SetupPage() {
                             Username is available!
                         </p>
                     )}
-                </div>
-            ),
-        },
-        {
-            title: "Tell us about yourself",
-            description: "Share a bit about your interests (optional)",
-            icon: <FileText className="w-8 h-8" />,
-            content: (
-                <div className="space-y-4">
-                    <Textarea
-                        placeholder="I'm passionate about technology, love reading sci-fi novels, and enjoy hiking on weekends..."
-                        value={formData.bio || ''}
-                        onChange={(e) => handleInputChange('bio', e.target.value)}
-                        className="bg-secondary border-primary/40 text-primary placeholder:text-primary/60 focus:ring-2 focus:ring-[#104e64] focus:border-transparent min-h-[120px]"
-                        rows={5}
-                    />
-                </div>
-            ),
-        },
-        {
-            title: "What do you study?",
-            description: "Your field of study (optional)",
-            icon: <GraduationCap className="w-8 h-8" />,
-            content: (
-                <div className="space-y-4">
-                    <Input
-                        type="text"
-                        placeholder="e.g., Computer Science, Medicine, Business Administration"
-                        value={formData.major || ''}
-                        onChange={(e) => handleInputChange('major', e.target.value)}
-                        className="bg-secondary border-primary/40 text-primary placeholder:text-primary/60 focus:ring-2 focus:ring-[#104e64] focus:border-transparent text-lg h-14"
-                    />
-                </div>
-            ),
-        },
-        {
-            title: "Academic details",
-            description: "Your year of study and institution (optional)",
-            icon: <BookOpen className="w-8 h-8" />,
-            content: (
-                <div className="space-y-6">
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium text-primary">Year of Study</label>
-                        <Select
-                            value={formData.year_of_study || ''}
-                            onValueChange={(val) => handleInputChange('year_of_study', val)}
-                        >
-                            <SelectTrigger className="bg-secondary border-primary/40 text-primary placeholder:text-primary/60 focus:ring-2 focus:ring-[#104e64] focus:border-transparent cursor-pointer h-14 text-lg">
-                                <SelectValue placeholder="Select your year" />
-                            </SelectTrigger>
-                            <SelectContent className="bg-secondary border-primary/40">
-                                {years.map((year) => (
-                                    <SelectItem
-                                        key={year}
-                                        value={year}
-                                        className="text-primary hover:bg-secondary focus:bg-primary/20 cursor-pointer"
-                                    >
-                                        {year}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium text-primary">University/Institution</label>
-                        <Select
-                            value={formData.school_name || ''}
-                            onValueChange={(val) => handleInputChange('school_name', val)}
-                            disabled={loadingUniversities}
-                        >
-                            <SelectTrigger className="bg-secondary border-primary/40 text-primary placeholder:text-primary/60 focus:ring-2 focus:ring-[#104e64] focus:border-transparent cursor-pointer h-14 text-lg">
-                                <SelectValue placeholder={loadingUniversities ? "Loading universities..." : "Select your institution"} />
-                            </SelectTrigger>
-                            <SelectContent className="bg-secondary border-primary/40 max-h-[300px]">
-                                {universities.map((uni) => (
-                                    <SelectItem
-                                        key={uni.id}
-                                        value={uni.name}
-                                        className="text-primary hover:bg-secondary focus:bg-primary/20 cursor-pointer"
-                                    >
-                                        {uni.name}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
                 </div>
             ),
         },

@@ -44,6 +44,7 @@ import { Spinner } from '@/components/ui/spinner';
 import DashboardAnalytics from '@/components/DashboardAnalytics';
 import { Moon, Sun } from 'lucide-react';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { MessageCircle } from 'lucide-react';
 
 interface LayoutUser {
     id: string;
@@ -64,20 +65,17 @@ const navigationItems = [
         icon: LayoutDashboard,
     },
     {
+        title: 'Chats',
+        href: '/me/chat',
+        icon: MessageCircle,
+    },
+    {
         title: 'Reverb',
         href: '/me/reverb',
         icon: Sparkles,
         items: [
             { title: 'My Chats', href: '/me/reverb/chats' },
             { title: 'Settings', href: '/me/reverb/settings' },
-        ],
-    },
-    {
-        title: 'Account',
-        icon: User,
-        items: [
-            { title: 'Profile', href: '/me/profile' },
-            { title: 'Settings', href: '/me/settings' },
         ],
     },
 ];

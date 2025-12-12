@@ -6,6 +6,7 @@ import { Plus, MessageSquare, Clock, Trash2, Search } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/card';
+import { createClient } from '@/lib/client';
 
 interface ChatSession {
     id: string;
@@ -20,14 +21,27 @@ export default function ChatsListPage() {
     const [sessions, setSessions] = useState<ChatSession[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
+    const [userId, setUserId] = useState<string | null>(null);
+    const supabase = createClient();
 
     useEffect(() => {
-        loadSessions();
+        initializeUser();
     }, []);
 
-    const loadSessions = async () => {
+    const initializeUser = async () => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+            setUserId(user.id);
+            loadSessions(user.id);
+        } else {
+            setIsLoading(false);
+            router.push('/auth/login'); // Redirect to login if not authenticated
+        }
+    };
+
+    const loadSessions = async (uid: string) => {
         try {
-            const response = await fetch('/api/reverb/sessions');
+            const response = await fetch(`/api/reverb/sessions?userId=${uid}`);
             if (response.ok) {
                 const data = await response.json();
                 setSessions(data.sessions || []);
@@ -40,6 +54,7 @@ export default function ChatsListPage() {
     };
 
     const createNewChat = async () => {
+        if (!userId) return;
         try {
             const sessionId = `session_${Date.now()}`;
             router.push(`/me/reverb/${sessionId}`);
@@ -52,10 +67,10 @@ export default function ChatsListPage() {
         e.preventDefault();
         e.stopPropagation();
 
-        if (!confirm('Delete this conversation?')) return;
+        if (!confirm('Delete this conversation?') || !userId) return;
 
         try {
-            await fetch(`/api/reverb/sessions/${id}`, {
+            await fetch(`/api/reverb/sessions/${id}?userId=${userId}`, {
                 method: 'DELETE'
             });
             setSessions(prev => prev.filter(s => s.id !== id));
@@ -84,6 +99,10 @@ export default function ChatsListPage() {
         session.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         session.lastMessage.toLowerCase().includes(searchQuery.toLowerCase())
     );
+
+    if (!userId && !isLoading) {
+        return null; // Will redirect to login
+    }
 
     return (
         <div className="min-h-screen bg-background text-foreground">

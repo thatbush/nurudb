@@ -32,26 +32,27 @@ export function SignUpForm({ className, ...props }: React.ComponentPropsWithoutR
       return false
     }
 
-    const supabase = createClient()
-    const { data, error } = await supabase
-      .from('users')
-      .select('username')
-      .eq('username', username)
-      .single()
+    try {
+      // Check username via Neon API
+      const response = await fetch(`/api/users/check-username?username=${encodeURIComponent(username)}`)
+      const result = await response.json()
 
-    if (error && error.code !== 'PGRST116') {
-      // PGRST116 is "no rows returned" which means username is available
+      if (!result.success) {
+        setUsernameError(result.error || 'Error checking username availability')
+        return false
+      }
+
+      if (!result.available) {
+        setUsernameError('Username is already taken')
+        return false
+      }
+
+      setUsernameError(null)
+      return true
+    } catch (error) {
       setUsernameError('Error checking username availability')
       return false
     }
-
-    if (data) {
-      setUsernameError('Username is already taken')
-      return false
-    }
-
-    setUsernameError(null)
-    return true
   }
 
   const handleUsernameBlur = () => {
@@ -80,7 +81,7 @@ export function SignUpForm({ className, ...props }: React.ComponentPropsWithoutR
     }
 
     try {
-      // Create auth user
+      // Create auth user with Supabase
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
@@ -92,31 +93,25 @@ export function SignUpForm({ className, ...props }: React.ComponentPropsWithoutR
       if (authError) throw authError
       if (!authData.user) throw new Error('User creation failed')
 
-      // Create user profile with username
-      const { error: profileError } = await supabase
-        .from('users')
-        .insert({
-          id: authData.user.id,
+      // Create user profile in Neon via API
+      const profileResponse = await fetch('/api/users', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          auth_id: authData.user.id,
           email: email,
           username: username,
           credits: 200, // Initial welcome bonus
-          auth_id: authData.user.id,
-        })
+        }),
+      })
 
-      if (profileError) throw profileError
+      const profileResult = await profileResponse.json()
 
-      // Create welcome bonus transaction
-      const { error: transactionError } = await supabase
-        .from('credit_transactions')
-        .insert({
-          user_id: authData.user.id,
-          amount: 200,
-          transaction_type: 'welcome_bonus',
-          description: 'Welcome bonus for signing up!',
-          category: 'earned',
-        })
-
-      if (transactionError) throw transactionError
+      if (!profileResult.success) {
+        throw new Error(profileResult.error || 'Failed to create user profile')
+      }
 
       router.push('/auth/sign-up-success')
     } catch (error: unknown) {

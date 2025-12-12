@@ -90,12 +90,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 setAuthUser(session.user as SupabaseUser);
 
                 // Fetch user profile from Neon
-                const profile = await fetchUserProfile(session.user.id);
+                if (session) {
+                    // Fetch user profile from Neon
+                    const profile = await fetchUserProfile(session.user.id);
 
-                if (profile) {
-                    setUser(profile);
-                } else {
-                    router.push('/me/set-up');
+                    if (profile) {
+                        setUser(profile);
+                        // Create authUser from session + profile
+                        setAuthUser({
+                            id: session.user.id,
+                            full_name: profile.full_name,
+                            username: profile.username,
+                            avatar_url: profile.avatar_url
+                        });
+                    } else {
+                        router.push('/me/set-up');
+                    }
                 }
             } catch (error) {
                 console.error('Auth initialization error:', error);

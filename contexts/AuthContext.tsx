@@ -87,7 +87,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     return;
                 }
 
-                setAuthUser(session.user);
+                setAuthUser(session.user as SupabaseUser);
 
                 // Fetch user profile from Neon
                 const profile = await fetchUserProfile(session.user.id);
@@ -117,13 +117,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     setAuthUser(null);
                     router.push('/auth/login');
                 } else if (event === 'SIGNED_IN' && session) {
-                    setAuthUser(session.user);
+                    setAuthUser(session.user as SupabaseUser);
                     const profile = await fetchUserProfile(session.user.id);
                     if (profile) {
-                        setUser(profile);
+                        setUser(profile as LayoutUser);
                     }
                 } else if (event === 'TOKEN_REFRESHED' && session) {
-                    setAuthUser(session.user);
+                    setAuthUser(session.user as SupabaseUser);
                 }
             }
         );

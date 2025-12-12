@@ -41,7 +41,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [authUser, setAuthUser] = useState<SupabaseUser | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
-    const fetchUserProfile = async (authUserId: string) => {
+    const fetchUserProfile = async (authUserId: string): Promise<LayoutUser | null> => {
         try {
             // Fetch from Neon via API
             const response = await fetch(`/api/users/profile/${authUserId}`);
@@ -87,25 +87,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     return;
                 }
 
-                setAuthUser(session.user as SupabaseUser);
+                // Fetch user profile from Neon FIRST
+                const profile = await fetchUserProfile(session.user.id);
 
-                // Fetch user profile from Neon
-                if (session) {
-                    // Fetch user profile from Neon
-                    const profile = await fetchUserProfile(session.user.id);
-
-                    if (profile) {
-                        setUser(profile);
-                        // Create authUser from session + profile
-                        setAuthUser({
-                            id: session.user.id,
-                            full_name: profile.full_name,
-                            username: profile.username,
-                            avatar_url: profile.avatar_url
-                        });
-                    } else {
-                        router.push('/me/set-up');
-                    }
+                if (profile) {
+                    setUser(profile);
+                    // Now create the authUser from the profile data
+                    setAuthUser({
+                        id: session.user.id,
+                        full_name: profile.full_name,
+                        username: profile.username,
+                        avatar_url: profile.avatar_url
+                    });
+                } else {
+                    router.push('/me/set-up');
                 }
             } catch (error) {
                 console.error('Auth initialization error:', error);
@@ -127,13 +122,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     setAuthUser(null);
                     router.push('/auth/login');
                 } else if (event === 'SIGNED_IN' && session) {
-                    setAuthUser(session.user as SupabaseUser);
                     const profile = await fetchUserProfile(session.user.id);
                     if (profile) {
-                        setUser(profile as LayoutUser);
+                        setUser(profile);
+                        setAuthUser({
+                            id: session.user.id,
+                            full_name: profile.full_name,
+                            username: profile.username,
+                            avatar_url: profile.avatar_url
+                        });
                     }
                 } else if (event === 'TOKEN_REFRESHED' && session) {
-                    setAuthUser(session.user as SupabaseUser);
+                    // Just update the id, keep other properties
+                    setAuthUser(prev => prev ? {
+                        ...prev,
+                        id: session.user.id
+                    } : null);
                 }
             }
         );

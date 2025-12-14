@@ -1,3 +1,9 @@
+
+- NextJS
+- Neon
+- Perplexity
+---
+
 Nuru is a Kenyan student and alumni network that combines social features, verified data, and live academic tools like timetables into one platform for campuses.
 
 ## What Nuru Is

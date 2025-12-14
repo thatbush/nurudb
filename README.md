@@ -1,36 +1,25 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+Nuru is a Kenyan student and alumni network that combines social features, verified data, and live academic tools like timetables into one platform for campuses.
 
-## Getting Started
+## What Nuru Is
 
-First, run the development server:
+Nuru is Kenya’s student and alumni network and knowledge base, built to help students make smarter choices about universities, courses, and campus life.  It connects students, alumni, and institutions in one place, focusing on verified information instead of chaotic, ad-filled social feeds.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## Core Concept
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The platform combines a social layer (chat, public and private spaces, random 1:1 pairing) with a verified data layer (alumni insights, institution and programme facts, and student-contributed corrections).  Nuru aims to replace static PDFs and outdated government portals with a living, crowdsourced knowledge base driven by real students and graduates.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Key Features
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- Student and alumni profiles, institution and course spaces, and public conversation rooms for each campus or programme.
+- Random 1:1 chats and topic-based rooms, with planned LLM-assisted moderation to keep conversations safe.
+- Banana Verdict voting: students can vote on whether specific facts about their university or programme are accurate, turning messy data into trusted records.
+- No ads, with a clean interface focused on learning, campus life, and verified guidance rather than distraction.
+- Timetable tools that let schools expose semester and exam schedules through CSV/Sheets so students always see up-to-date timetables inside Nuru.
 
-## Learn More
+## Architecture Overview
 
-To learn more about Next.js, take a look at the following resources:
+Nuru is built primarily on modern web technologies, using Next.js for the frontend and app shell, with managed Postgres (Supabase historically, and Neon for the new canonical database) for data and auth.  Institution and timetable data can be synced from external systems and spreadsheets (e.g., Google Sheets, CSV backed by Cloudflare R2), while verification and “banana verdict” flows curate a clean, trusted dataset over time.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Roadmap
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Early versions focus on one university (such as MKU) as an MVP, validating the social features, timetable flows, and alumni knowledge base before expanding.  Future iterations include deeper verification, ride/logistics integrations for students, richer analytics for institutions, and a sustainable paid layer for advanced tools while keeping core student access free and ad‑free.
